@@ -283,7 +283,13 @@ Identity Certificates and Certificate Authorities
 ..
     Sect<14.5.3>
 
-All certificate inputs to OpenDDS, including self-signed CA certificates, are expected to be an X.509 v3 certificate in PEM format for either a 2048-bit RSA key or a 256-bit Elliptic Curve key (using the prime256v1 curve).
+Certificate inputs to the built-in DDS Security plugins, including self-signed CA
+certificates, are expected to be X.509 v3 certificates in PEM format using either
+a 2048-bit RSA key or a 256-bit Elliptic Curve key (using the prime256v1 curve).
+When OpenDDS is built with OpenSSL 3.5 or newer, its certificate and private-key
+helpers also support ML-DSA-44, ML-DSA-65, and ML-DSA-87 for custom security
+plugins.  The built-in PKI-DH authentication protocol continues to advertise only
+its standard RSA and ECDSA algorithms.
 
 .. _dds_security--identity-permissions-and-subject-names:
 

@@ -95,6 +95,48 @@ public:
 
     EVP_MD_CTX_init(md_ctx);
 
+#ifdef OPENSSL_V_3_0
+    const bool mldsa = EVP_PKEY_is_a(private_key, "ML-DSA-44") ||
+      EVP_PKEY_is_a(private_key, "ML-DSA-65") ||
+      EVP_PKEY_is_a(private_key, "ML-DSA-87");
+    if (mldsa) {
+      if (1 != EVP_DigestSignInit_ex(md_ctx, &pkey_ctx, 0, 0, 0,
+                                     private_key, 0)) {
+        OPENDDS_SSL_LOG_ERR("EVP_DigestSignInit_ex failed");
+        return 1;
+      }
+
+      size_t size = 0;
+      for (std::vector<const DDS::OctetSeq*>::const_iterator pos = src.begin();
+           pos != src.end(); ++pos) {
+        size += (*pos)->length();
+      }
+      std::vector<unsigned char> message(size);
+      size_t offset = 0;
+      for (std::vector<const DDS::OctetSeq*>::const_iterator pos = src.begin();
+           pos != src.end(); ++pos) {
+        if ((*pos)->length()) {
+          std::memcpy(&message[offset], (*pos)->get_buffer(), (*pos)->length());
+          offset += (*pos)->length();
+        }
+      }
+
+      if (1 != EVP_DigestSign(md_ctx, 0, &len,
+                              message.empty() ? 0 : &message[0], message.size())) {
+        OPENDDS_SSL_LOG_ERR("EVP_DigestSign size query failed");
+        return 1;
+      }
+      dst.length(static_cast<unsigned int>(len));
+      if (1 != EVP_DigestSign(md_ctx, dst.get_buffer(), &len,
+                              message.empty() ? 0 : &message[0], message.size())) {
+        OPENDDS_SSL_LOG_ERR("EVP_DigestSign failed");
+        return 1;
+      }
+      dst.length(static_cast<unsigned int>(len));
+      return 0;
+    }
+#endif
+
     if (1 != EVP_DigestSignInit(md_ctx, &pkey_ctx, EVP_sha256(), 0,
                                 private_key)) {
       OPENDDS_SSL_LOG_ERR("EVP_DigestSignInit failed");

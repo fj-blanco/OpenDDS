@@ -104,6 +104,16 @@ AuthenticationBuiltInImpl::~AuthenticationBuiltInImpl()
     return result;
   }
 
+  // This implementation is the standardized DDS:Auth:PKI-DH plugin.  The SSL
+  // helpers can support additional algorithms for custom plugins, but the
+  // builtin token must only advertise algorithms defined for PKI-DH.
+  const std::string dsign_algo = credentials->get_participant_cert().dsign_algo();
+  if (dsign_algo != "RSASSA-PSS-SHA256" && dsign_algo != "ECDSA-SHA256") {
+    set_security_error(ex, -1, 0,
+                       "DDS:Auth:PKI-DH does not support the identity certificate signature algorithm");
+    return result;
+  }
+
   if (credentials->validate()) {
     if (candidate_participant_guid != DCPS::GUID_UNKNOWN) {
 

@@ -194,6 +194,36 @@ public:
 
     EVP_MD_CTX_init(md_ctx);
 
+#ifdef OPENSSL_V_3_0
+    const bool mldsa = EVP_PKEY_is_a(public_key, "ML-DSA-44") ||
+      EVP_PKEY_is_a(public_key, "ML-DSA-65") ||
+      EVP_PKEY_is_a(public_key, "ML-DSA-87");
+    if (mldsa) {
+      if (1 != EVP_DigestVerifyInit_ex(md_ctx, &pkey_ctx, 0, 0, 0,
+                                       public_key, 0)) {
+        OPENDDS_SSL_LOG_ERR("EVP_DigestVerifyInit_ex failed");
+        return 1;
+      }
+
+      size_t size = 0;
+      for (std::vector<const DDS::OctetSeq*>::const_iterator pos = expected_contents.begin();
+           pos != expected_contents.end(); ++pos) {
+        size += (*pos)->length();
+      }
+      std::vector<unsigned char> message(size);
+      size_t offset = 0;
+      for (std::vector<const DDS::OctetSeq*>::const_iterator pos = expected_contents.begin();
+           pos != expected_contents.end(); ++pos) {
+        if ((*pos)->length()) {
+          std::memcpy(&message[offset], (*pos)->get_buffer(), (*pos)->length());
+          offset += (*pos)->length();
+        }
+      }
+      return EVP_DigestVerify(md_ctx, src.get_buffer(), src.length(),
+                              message.empty() ? 0 : &message[0], message.size()) == 1 ? 0 : 1;
+    }
+#endif
+
     if (1 != EVP_DigestVerifyInit(md_ctx, &pkey_ctx, EVP_sha256(), 0,
                                   public_key)) {
       OPENDDS_SSL_LOG_ERR("EVP_DigestVerifyInit failed");
@@ -347,6 +377,11 @@ const char* Certificate::keypair_algo() const
   } else if (std::string("ECDSA-SHA256") == dsign_algo_) {
     return "EC-prime256v1";
 
+  } else if (std::string("ML-DSA-44") == dsign_algo_ ||
+             std::string("ML-DSA-65") == dsign_algo_ ||
+             std::string("ML-DSA-87") == dsign_algo_) {
+    return dsign_algo_.c_str();
+
   } else {
     return "UNKNOWN";
   }
@@ -405,12 +440,21 @@ struct cache_dsign_algo_impl
     } else if (ptype == EVP_PKEY_EC) {
       dst = "ECDSA-SHA256";
       return 0;
+    } else if (EVP_PKEY_is_a(pkey_, "ML-DSA-44")) {
+      dst = "ML-DSA-44";
+      return 0;
+    } else if (EVP_PKEY_is_a(pkey_, "ML-DSA-65")) {
+      dst = "ML-DSA-65";
+      return 0;
+    } else if (EVP_PKEY_is_a(pkey_, "ML-DSA-87")) {
+      dst = "ML-DSA-87";
+      return 0;
     }
 #endif
 
     ACE_ERROR((LM_WARNING,
                "(%P|%t) SSL::Certificate::cache_dsign_algo: WARNING, only RSASSA-PSS-SHA256 or "
-               "ECDSA-SHA256 are currently supported signature/verification algorithms\n"));
+               "ECDSA-SHA256, or ML-DSA are currently supported signature/verification algorithms\n"));
 
     return 1;
   }
