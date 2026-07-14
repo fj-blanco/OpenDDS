@@ -17,7 +17,6 @@
 #include <dds/DCPS/EntityImpl.h>
 #include <dds/DCPS/SafetyProfileStreams.h>
 #include <dds/DCPS/Service_Participant.h>
-#include <dds/DCPS/Service_Participant.h>
 #include <dds/DCPS/Util.h>
 
 #include <dds/OpenDDSConfigWrapper.h>
@@ -74,13 +73,27 @@ SecurityRegistry::SecurityConfigEntry::get_crypto_name() const
   return TheServiceParticipant->config_store()->get(config_key("CRYPTO_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
 }
 
+DCPS::String
+SecurityRegistry::SecurityConfigEntry::get_utility_name() const
+{
+  return TheServiceParticipant->config_store()->get(config_key("UTILITY_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
+}
+
 ConfigPropertyList
 SecurityRegistry::SecurityConfigEntry::get_properties() const
 {
   const DCPS::ConfigStoreImpl::StringMap sm = TheServiceParticipant->config_store()->get_section_values(config_prefix());
   ConfigPropertyList cpl;
   for (DCPS::ConfigStoreImpl::StringMap::const_iterator pos = sm.begin(), limit = sm.end(); pos != limit; ++pos) {
-    cpl.push_back(ConfigProperty(pos->first, pos->second));
+    const DCPS::String& name = pos->first;
+    // get_section_values() strips config_prefix_ and returns canonicalized
+    // names relative to the section.
+    if (name != "AUTH_CONFIG" &&
+        name != "ACCESS_CTRL_CONFIG" &&
+        name != "CRYPTO_CONFIG" &&
+        name != "UTILITY_CONFIG") {
+      cpl.push_back(ConfigProperty(name, pos->second));
+    }
   }
   return cpl;
 }
@@ -184,6 +197,15 @@ SecurityRegistry::create_config(const OPENDDS_STRING& config_name)
     return SecurityConfig_rch();
   }
 
+  SecurityPluginInst_rch utility_plugin_inst = get_plugin_inst(entry->get_utility_name());
+  if (utility_plugin_inst.is_nil()) {
+    ACE_ERROR((LM_ERROR,
+               ACE_TEXT("(%P|%t) SecurityRegistry::create_config: ")
+               ACE_TEXT("Failed to load utility plugin %C\n"),
+               entry->get_utility_name().c_str()));
+    return SecurityConfig_rch();
+  }
+
   // Create the new config and try to add it to the container
   // of existing configs.  If this fails for some reason, then
   // release the new config and fail
@@ -195,7 +217,7 @@ SecurityRegistry::create_config(const OPENDDS_STRING& config_name)
                                    crypto_plugin_inst->create_crypto_key_exchange(),
                                    crypto_plugin_inst->create_crypto_key_factory(),
                                    crypto_plugin_inst->create_crypto_transform(),
-                                   DCPS::RcHandle<Utility>(),
+                                   utility_plugin_inst->create_utility(),
 #endif
                                    entry->get_properties());
 
@@ -308,6 +330,10 @@ SecurityRegistry::builtin_config(const SecurityConfig_rch& config)
 int
 SecurityRegistry::load_security_configuration()
 {
+  if (load_security_plugin_directives() != 0) {
+    return -1;
+  }
+
   const DCPS::ConfigStoreImpl::StringList keys =
     TheServiceParticipant->config_store()->get_section_names("SECURITY");
 
@@ -334,16 +360,56 @@ SecurityRegistry::load_security_configuration()
   return 0;
 }
 
-void
+int
+SecurityRegistry::load_security_plugin_directives()
+{
+  const DCPS::ConfigStoreImpl::StringList keys =
+    TheServiceParticipant->config_store()->get_section_names("SECURITY_PLUGIN");
+
+  for (DCPS::ConfigStoreImpl::StringList::const_iterator pos = keys.begin(), limit = keys.end();
+       pos != limit; ++pos) {
+    if (*pos == DEFAULT_PLUGIN_NAME) {
+      ACE_ERROR((LM_ERROR,
+                 "(%P|%t) SecurityRegistry::load_security_plugin_directives: "
+                 "the reserved plugin name %C cannot be redefined.\n",
+                 DEFAULT_PLUGIN_NAME));
+      return -1;
+    }
+
+    const DCPS::String prefix = DCPS::ConfigPair::canonicalize("SECURITY_PLUGIN_" + *pos);
+    const DCPS::String library = TheServiceParticipant->config_store()->get((prefix + "_LIBRARY").c_str(), "");
+    const DCPS::String loader = TheServiceParticipant->config_store()->get((prefix + "_LOADER").c_str(), "");
+    if (library.empty() || loader.empty()) {
+      ACE_ERROR((LM_ERROR,
+                 "(%P|%t) SecurityRegistry::load_security_plugin_directives: "
+                 "[security_plugin/%C] requires Library and Loader.\n",
+                 pos->c_str()));
+      return -1;
+    }
+
+    DCPS::String directive = "dynamic " + *pos + " Service_Object * " +
+      library + ":_make_" + loader + "()";
+    lib_directive_map_[*pos] = directive;
+  }
+  return 0;
+}
+
+bool
 SecurityRegistry::load_security_plugin_lib(const OPENDDS_STRING& security_plugin_type)
 {
   GuardType guard(lock_);
   LibDirectiveMap::iterator lib_iter = lib_directive_map_.find(security_plugin_type);
-  if (lib_iter != lib_directive_map_.end()) {
-    ACE_TString directive = ACE_TEXT_CHAR_TO_TCHAR(lib_iter->second.c_str());
-    guard.release();
-    ACE_Service_Config::process_directive(directive.c_str());
+  if (lib_iter == lib_directive_map_.end()) {
+    ACE_ERROR((LM_ERROR,
+               "(%P|%t) SecurityRegistry::load_security_plugin_lib: "
+               "no library directive for security plugin %C.\n",
+               security_plugin_type.c_str()));
+    return false;
   }
+
+  ACE_TString directive = ACE_TEXT_CHAR_TO_TCHAR(lib_iter->second.c_str());
+  guard.release();
+  return ACE_Service_Config::process_directive(directive.c_str()) == 0;
 }
 
 bool
