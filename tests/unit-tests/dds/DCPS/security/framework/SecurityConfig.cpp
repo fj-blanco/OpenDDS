@@ -10,6 +10,7 @@
 #include "dds/DCPS/security/framework/SecurityConfig.h"
 #include "dds/DCPS/security/framework/SecurityRegistry.h"
 #include "dds/DCPS/security/framework/SecurityPluginInst_rch.h"
+#include "dds/DCPS/Service_Participant.h"
 
 // These are just used to meet signature requirements for a test
 #include <gtestWrapper.h>
@@ -48,9 +49,11 @@ public:
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_PROP1", "prop1_value");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_PROP2", "prop2_value");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_AUTH_CONFIG", "BuiltIn");
-    TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_ACCESS_CTRL_CONFIG", "BuiltIn");
+    TheServiceParticipant->config_store()->set(
+      "SECURITY_TEST_CONFIG_1_ACCESS_CTRL_CONFIG", "BuiltIn");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_CRYPTO_CONFIG", "BuiltIn");
-    TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_1_UTILITY_CONFIG", "BuiltIn");
+    TheServiceParticipant->config_store()->set(
+      "SECURITY_TEST_CONFIG_1_UTILITY_CONFIG", "BuiltIn");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_2_PROP1", "A");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_2_PROP2", "B");
     TheServiceParticipant->config_store()->set("SECURITY_TEST_CONFIG_2_PROPX", "C");
