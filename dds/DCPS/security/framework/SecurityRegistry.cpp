@@ -21,14 +21,50 @@
 
 #include <dds/OpenDDSConfigWrapper.h>
 
-#include <ace/Singleton.h>
+#include <ace/OS_NS_ctype.h>
 #include <ace/OS_NS_strings.h>
 #include <ace/Service_Config.h>
+#include <ace/Singleton.h>
 
 OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 
 namespace OpenDDS {
 namespace Security {
+
+namespace {
+
+bool is_identifier(const DCPS::String& value)
+{
+  if (value.empty() ||
+      (!ACE_OS::ace_isalpha(static_cast<unsigned char>(value[0])) && value[0] != '_')) {
+    return false;
+  }
+  for (size_t i = 1; i != value.size(); ++i) {
+    if (!ACE_OS::ace_isalnum(static_cast<unsigned char>(value[i])) && value[i] != '_') {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool is_library_path(const DCPS::String& value)
+{
+  if (value.empty()) {
+    return false;
+  }
+  for (size_t i = 0; i != value.size(); ++i) {
+    const char c = value[i];
+    const bool drive_separator = c == ':' && i == 1 &&
+      ACE_OS::ace_isalpha(static_cast<unsigned char>(value[0]));
+    if (!ACE_OS::ace_isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '-' &&
+        c != '.' && c != '+' && c != '/' && c != '\\' && !drive_separator) {
+      return false;
+    }
+  }
+  return true;
+}
+
+}
 
 const char* SecurityRegistry::DEFAULT_CONFIG_NAME = "_OPENDDS_DEFAULT_CONFIG";
 const char* SecurityRegistry::BUILTIN_CONFIG_NAME = "_OPENDDS_BUILTIN_CONFIG";
@@ -58,33 +94,39 @@ SecurityRegistry::SecurityConfigEntry::~SecurityConfigEntry()
 DCPS::String
 SecurityRegistry::SecurityConfigEntry::get_auth_name() const
 {
-  return TheServiceParticipant->config_store()->get(config_key("AUTH_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
+  return TheServiceParticipant->config_store()->get(
+    config_key("AUTH_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
 }
 
 DCPS::String
 SecurityRegistry::SecurityConfigEntry::get_access_control_name() const
 {
-  return TheServiceParticipant->config_store()->get(config_key("ACCESS_CTRL_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
+  return TheServiceParticipant->config_store()->get(
+    config_key("ACCESS_CTRL_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
 }
 
 DCPS::String
 SecurityRegistry::SecurityConfigEntry::get_crypto_name() const
 {
-  return TheServiceParticipant->config_store()->get(config_key("CRYPTO_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
+  return TheServiceParticipant->config_store()->get(
+    config_key("CRYPTO_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
 }
 
 DCPS::String
 SecurityRegistry::SecurityConfigEntry::get_utility_name() const
 {
-  return TheServiceParticipant->config_store()->get(config_key("UTILITY_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
+  return TheServiceParticipant->config_store()->get(
+    config_key("UTILITY_CONFIG").c_str(), DEFAULT_PLUGIN_NAME);
 }
 
 ConfigPropertyList
 SecurityRegistry::SecurityConfigEntry::get_properties() const
 {
-  const DCPS::ConfigStoreImpl::StringMap sm = TheServiceParticipant->config_store()->get_section_values(config_prefix());
+  const DCPS::ConfigStoreImpl::StringMap sm =
+    TheServiceParticipant->config_store()->get_section_values(config_prefix());
   ConfigPropertyList cpl;
-  for (DCPS::ConfigStoreImpl::StringMap::const_iterator pos = sm.begin(), limit = sm.end(); pos != limit; ++pos) {
+  for (DCPS::ConfigStoreImpl::StringMap::const_iterator pos = sm.begin(), limit = sm.end();
+       pos != limit; ++pos) {
     const DCPS::String& name = pos->first;
     // get_section_values() strips config_prefix_ and returns canonicalized
     // names relative to the section.
@@ -113,7 +155,9 @@ SecurityRegistry::close()
 SecurityRegistry::SecurityRegistry()
 {
   DBG_ENTRY_LVL("SecurityRegistry", "SecurityRegistry", 6);
-  lib_directive_map_[DEFAULT_PLUGIN_NAME] = "dynamic OpenDDS_Security Service_Object * OpenDDS_Security:_make_BuiltInPluginLoader()";
+  lib_directive_map_[DEFAULT_PLUGIN_NAME] =
+    "dynamic OpenDDS_Security Service_Object * "
+    "OpenDDS_Security:_make_BuiltInPluginLoader()";
 }
 
 void
@@ -122,11 +166,13 @@ SecurityRegistry::release()
   DBG_ENTRY_LVL("SecurityRegistry", "release", 6);
   GuardType guard(lock_);
 
-  for (InstMap::iterator iter = registered_plugins_.begin(); iter != registered_plugins_.end(); ++iter) {
+  for (InstMap::iterator iter = registered_plugins_.begin();
+       iter != registered_plugins_.end(); ++iter) {
     iter->second->shutdown();
   }
   registered_plugins_.clear();
   config_map_.clear();
+  config_entries_.clear();
 }
 
 void
@@ -206,18 +252,36 @@ SecurityRegistry::create_config(const OPENDDS_STRING& config_name)
     return SecurityConfig_rch();
   }
 
+#if OPENDDS_CONFIG_SECURITY
+  Authentication_var authentication = auth_plugin_inst->create_authentication();
+  AccessControl_var access_control = ac_plugin_inst->create_access_control();
+  CryptoKeyExchange_var key_exchange = crypto_plugin_inst->create_crypto_key_exchange();
+  CryptoKeyFactory_var key_factory = crypto_plugin_inst->create_crypto_key_factory();
+  CryptoTransform_var transform = crypto_plugin_inst->create_crypto_transform();
+  DCPS::RcHandle<Utility> utility = utility_plugin_inst->create_utility();
+  if (!authentication || !access_control || !key_exchange || !key_factory || !transform ||
+      utility.is_nil()) {
+    ACE_ERROR((LM_ERROR,
+               ACE_TEXT("(%P|%t) SecurityRegistry::create_config: ")
+               ACE_TEXT("config=%C selected a plugin that does not provide ")
+               ACE_TEXT("its requested interface.\n"),
+               config_name.c_str()));
+    return SecurityConfig_rch();
+  }
+#endif
+
   // Create the new config and try to add it to the container
   // of existing configs.  If this fails for some reason, then
   // release the new config and fail
   SecurityConfig_rch new_config =
     DCPS::make_rch<SecurityConfig>(config_name,
 #if OPENDDS_CONFIG_SECURITY
-                                   auth_plugin_inst->create_authentication(),
-                                   ac_plugin_inst->create_access_control(),
-                                   crypto_plugin_inst->create_crypto_key_exchange(),
-                                   crypto_plugin_inst->create_crypto_key_factory(),
-                                   crypto_plugin_inst->create_crypto_transform(),
-                                   utility_plugin_inst->create_utility(),
+                                   authentication,
+                                   access_control,
+                                   key_exchange,
+                                   key_factory,
+                                   transform,
+                                   utility,
 #endif
                                    entry->get_properties());
 
@@ -376,13 +440,23 @@ SecurityRegistry::load_security_plugin_directives()
       return -1;
     }
 
-    const DCPS::String prefix = DCPS::ConfigPair::canonicalize("SECURITY_PLUGIN_" + *pos);
-    const DCPS::String library = TheServiceParticipant->config_store()->get((prefix + "_LIBRARY").c_str(), "");
-    const DCPS::String loader = TheServiceParticipant->config_store()->get((prefix + "_LOADER").c_str(), "");
+    const DCPS::String prefix =
+      DCPS::ConfigPair::canonicalize("SECURITY_PLUGIN_" + *pos);
+    const DCPS::String library = TheServiceParticipant->config_store()->get(
+      (prefix + "_LIBRARY").c_str(), "");
+    const DCPS::String loader = TheServiceParticipant->config_store()->get(
+      (prefix + "_LOADER").c_str(), "");
     if (library.empty() || loader.empty()) {
       ACE_ERROR((LM_ERROR,
                  "(%P|%t) SecurityRegistry::load_security_plugin_directives: "
                  "[security_plugin/%C] requires Library and Loader.\n",
+                 pos->c_str()));
+      return -1;
+    }
+    if (!is_identifier(*pos) || !is_identifier(loader) || !is_library_path(library)) {
+      ACE_ERROR((LM_ERROR,
+                 "(%P|%t) SecurityRegistry::load_security_plugin_directives: "
+                 "[security_plugin/%C] contains an invalid plugin name, Library, or Loader.\n",
                  pos->c_str()));
       return -1;
     }
@@ -456,7 +530,9 @@ SecurityPluginInst_rch SecurityRegistry::get_plugin_inst(
   if (find(registered_plugins_, plugin_name, plugin_inst) != 0 && attempt_fix) {
     guard.release();
     // Not present, try to load library
-    load_security_plugin_lib(plugin_name);
+    if (!load_security_plugin_lib(plugin_name)) {
+      return SecurityPluginInst_rch();
+    }
     guard.acquire();
 
     // Try to find it again

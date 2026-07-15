@@ -2385,6 +2385,11 @@ the C++ interfaces from ``DdsSecurityCore.idl``. The loader class is an
 ``ACE_Service_Object`` whose ``init`` method registers a
 ``SecurityPluginInst`` with ``TheSecurityRegistry``. The plugin name in the
 two sections below must match the name passed to ``register_plugin``.
+The configuration file is trusted input: it selects native code that is loaded
+into the process. Plugin and loader names must be C identifiers. Library values
+may contain letters, digits, ``_``, ``-``, ``.``, ``+``, directory separators,
+and a Windows drive separator after the leading drive letter, but no whitespace
+or service-directive metacharacters.
 
 .. sec:: security_plugin/<plugin_name>
 
@@ -2401,6 +2406,9 @@ two sections below must match the name passed to ``register_plugin``.
     its ACE factory using ``ACE_FACTORY_DEFINE``.
 
 .. sec:: security/<config_name>
+
+  Configuration names are case-sensitive, including the value supplied to
+  :prop:`DCPSGlobalSecurityConfig`.
 
   .. prop:: AuthConfig=<plugin_name>
     :default: ``BuiltIn``
@@ -2422,6 +2430,13 @@ two sections below must match the name passed to ``register_plugin``.
     :default: ``BuiltIn``
 
     Plugin providing OpenDDS's security Utility interface.
+
+  Other entries in this section are exposed as properties on the resulting
+  ``SecurityConfig``. OpenDDS's configuration store canonicalizes their names:
+  names are upper-case and punctuation is converted to underscores. Therefore,
+  these entries are not suitable for plugin properties whose API requires an
+  exact, punctuation-sensitive name such as ``dds.sec.*``; set those properties
+  in the participant QoS instead.
 
 For example, an external authentication implementation can be combined with
 the built-in access-control and cryptography implementations:
