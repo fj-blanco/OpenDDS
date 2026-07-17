@@ -34,13 +34,15 @@ int ownership_strength = 0;
 int reset_ownership_strength = -1;
 ACE_CString ownership_dw_id = "OwnershipDataWriter";
 bool delay_reset = false;
+ACE_CString topic_name = "Movie Discussion List";
+int expected_readers = 2;
 
 namespace {
 
 int
 parse_args(int argc, ACE_TCHAR *argv[])
 {
-  ACE_Get_Opt get_opts(argc, argv, ACE_TEXT("s:i:r:d:y:l:c"));
+  ACE_Get_Opt get_opts(argc, argv, ACE_TEXT("s:i:r:d:y:l:cn:m:"));
 
   int c;
   while ((c = get_opts()) != -1) {
@@ -68,12 +70,19 @@ parse_args(int argc, ACE_TCHAR *argv[])
     case 'c':
       delay_reset = true;
       break;
+    case 'n':
+      topic_name = ACE_TEXT_ALWAYS_CHAR(get_opts.opt_arg());
+      break;
+    case 'm':
+      expected_readers = ACE_OS::atoi(get_opts.opt_arg());
+      break;
     case '?':
     default:
       ACE_ERROR_RETURN((LM_ERROR,
                         ACE_TEXT("usage: %C -s <ownership_strength> ")
                         ACE_TEXT("-i <ownership_dw_id> -r <reset_ownership_strength> ")
-                        ACE_TEXT("-d <deadline> -y <delay> -l <liveliness>\n"),
+                        ACE_TEXT("-d <deadline> -y <delay> -l <liveliness> ")
+                        ACE_TEXT("-n <topic_name> -m <expected_readers>\n"),
                         argv[0]),
                         -1);
     }
@@ -137,7 +146,7 @@ int ACE_TMAIN(int argc, ACE_TCHAR *argv[])
 
     // Create Topic
     DDS::Topic_var topic =
-      participant->create_topic("Movie Discussion List",
+      participant->create_topic(topic_name.c_str(),
                                 CORBA::String_var(mts->get_type_name()),
                                 TOPIC_QOS_DEFAULT,
                                 DDS::TopicListener::_nil(),
@@ -188,7 +197,7 @@ int ACE_TMAIN(int argc, ACE_TCHAR *argv[])
     }
 
     // Start writing threads
-    Writer* writer = new Writer(dw.in(), ownership_dw_id.c_str());
+    Writer* writer = new Writer(dw.in(), ownership_dw_id.c_str(), expected_readers);
     writer->start();
 
     while (!writer->is_finished()) {

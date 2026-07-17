@@ -122,6 +122,20 @@ ACE_TMAIN(int argc, ACE_TCHAR *argv[])
                           ACE_TEXT(" ERROR: create_topic() failed!\n")), -1);
       }
 
+      DDS::Topic_var topic2;
+      if (testcase == shared_type) {
+        topic2 = participant->create_topic("Movie_Discussion_List_2",
+                                           CORBA::String_var(ts->get_type_name()),
+                                           TOPIC_QOS_DEFAULT,
+                                           DDS::TopicListener::_nil(),
+                                           OpenDDS::DCPS::DEFAULT_STATUS_MASK);
+        if (CORBA::is_nil(topic2.in())) {
+          ACE_ERROR_RETURN((LM_ERROR,
+                            ACE_TEXT("%N:%l main()")
+                            ACE_TEXT(" ERROR: create_topic() failed!\n")), -1);
+        }
+      }
+
       // Create Subscriber
       DDS::Subscriber_var sub =
         participant->create_subscriber(SUBSCRIBER_QOS_DEFAULT,
@@ -135,8 +149,10 @@ ACE_TMAIN(int argc, ACE_TCHAR *argv[])
       }
 
       // Create DataReader
-      DataReaderListenerImpl* listener_svt1 = new DataReaderListenerImpl("DataReader1");
-      DataReaderListenerImpl* listener_svt2 = new DataReaderListenerImpl("DataReader2");
+      DataReaderListenerImpl* listener_svt1 =
+        new DataReaderListenerImpl("DataReader1", testcase == shared_type ? 10 : -1);
+      DataReaderListenerImpl* listener_svt2 =
+        new DataReaderListenerImpl("DataReader2", testcase == shared_type ? 10 : -1);
 
       DDS::DataReaderListener_var listener1(listener_svt1);
       DDS::DataReaderListener_var listener2(listener_svt2);
@@ -162,7 +178,7 @@ ACE_TMAIN(int argc, ACE_TCHAR *argv[])
       }
 
       DDS::DataReader_var reader2 =
-        sub->create_datareader(topic.in(),
+        sub->create_datareader(testcase == shared_type ? topic2.in() : topic.in(),
                                dr_qos,
                                listener2.in(),
                                OpenDDS::DCPS::DEFAULT_STATUS_MASK);
