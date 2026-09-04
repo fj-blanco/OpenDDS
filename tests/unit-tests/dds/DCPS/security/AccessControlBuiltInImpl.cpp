@@ -163,6 +163,8 @@ class MockAuthentication : public DDS::Security::Authentication {
       CORBA::Boolean(::DDS::Security::IdentityToken & identity_token, ::DDS::Security::IdentityHandle handle, ::DDS::Security::SecurityException & ex));
   MOCK_METHOD3(get_identity_status_token,
       CORBA::Boolean(::DDS::Security::IdentityStatusToken & identity_status_token, ::DDS::Security::IdentityHandle handle, ::DDS::Security::SecurityException & ex));
+  MOCK_METHOD4(set_participant_security_config,
+      CORBA::Boolean(::DDS::Security::ParticipantSecurityAlgorithmInfo & adjusted_algorithm_info, ::DDS::Security::IdentityHandle handle, const ::DDS::Security::ParticipantSecurityConfig & participant_security_config, ::DDS::Security::SecurityException & ex));
   MOCK_METHOD4(set_permissions_credential_and_token,
       CORBA::Boolean(::DDS::Security::IdentityHandle handle, const ::DDS::Security::PermissionsCredentialToken & permissions_credential, const ::DDS::Security::PermissionsToken & permissions_token, ::DDS::Security::SecurityException & ex));
   MOCK_METHOD7(validate_remote_identity,

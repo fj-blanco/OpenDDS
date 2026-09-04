@@ -200,6 +200,7 @@ struct DiscoveredParticipant {
   DDS::Security::PermissionsHandle permissions_handle_;
   DDS::Security::ParticipantCryptoTokenSeq crypto_tokens_;
   DDS::Security::ExtendedBuiltinEndpointSet_t extended_builtin_endpoints_;
+  DDS::Security::ParticipantSecurityAlgorithmInfo algorithm_info_;
   bool participant_tokens_sent_;
 
   bool has_security_data() const

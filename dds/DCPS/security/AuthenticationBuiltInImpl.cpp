@@ -14,6 +14,7 @@
 
 #include "dds/DCPS/GuidUtils.h"
 #include "dds/DCPS/LocalObject.h"
+#include "dds/DCPS/SecurityAlgorithms.h"
 #include "dds/DCPS/Serializer.h"
 
 #include "dds/DCPS/RTPS/RtpsCoreC.h"
@@ -41,6 +42,18 @@ static void extract_participant_guid_from_cpdata(const DDS::OctetSeq& cpdata, DC
 static bool validate_topic_data_guid(const DDS::OctetSeq& cpdata,
                                      const std::vector<unsigned char>& subject_name_hash,
                                      DDS::Security::SecurityException& ex);
+
+static DDS::Security::CryptoAlgorithmBit signature_algorithm_bit(const char* algorithm)
+{
+  using namespace DDS::Security;
+  if (std::strcmp(algorithm, "RSASSA-PSS-SHA256") == 0) {
+    return CBIT_RSASSA_PSS_MGF1SHA256_2048_SHA256;
+  }
+  if (std::strcmp(algorithm, "ECDSA-SHA256") == 0) {
+    return CBIT_ECDSA_P256_SHA256;
+  }
+  return CRYPTO_ALGORITHM_SET_EMPTY;
+}
 
 const std::string Auth_Plugin_Name("DDS:Auth:PKI-DH");
 const std::string Auth_Plugin_Major_Version("1");
@@ -229,6 +242,59 @@ AuthenticationBuiltInImpl::~AuthenticationBuiltInImpl()
   }
 
   return local_data->credentials->load_access_permissions(permissions_credential, ex);
+}
+
+::CORBA::Boolean AuthenticationBuiltInImpl::set_participant_security_config(
+  ::DDS::Security::ParticipantSecurityAlgorithmInfo& adjusted_algorithm_info,
+  ::DDS::Security::IdentityHandle handle,
+  const ::DDS::Security::ParticipantSecurityConfig& participant_security_config,
+  ::DDS::Security::SecurityException& ex)
+{
+  using namespace DDS::Security;
+
+  ACE_Guard<ACE_Thread_Mutex> identity_data_guard(identity_mutex_);
+  LocalParticipantData::shared_ptr local_data = get_local_participant(handle);
+  if (!local_data) {
+    set_security_error(ex, -1, 0, "Identity handle not recognized");
+    return false;
+  }
+
+  adjusted_algorithm_info = participant_security_config.algorithm_info;
+
+  CryptoAlgorithmRequirements& trust_chain =
+    adjusted_algorithm_info.digital_signature.trust_chain;
+  trust_chain.supported_mask &= CBIT_RSASSA_PSS_MGF1SHA256_2048_SHA256 |
+    CBIT_RSASSA_PKCS1_V15_2048_SHA256 | CBIT_ECDSA_P256_SHA256;
+  const CryptoAlgorithmBit ca_signature = signature_algorithm_bit(
+    local_data->credentials->get_ca_cert().dsign_algo());
+  trust_chain.required_mask |= ca_signature;
+
+  CryptoAlgorithmRequirements& message_auth =
+    adjusted_algorithm_info.digital_signature.message_auth;
+  message_auth.supported_mask &=
+    CBIT_RSASSA_PSS_MGF1SHA256_2048_SHA256 | CBIT_ECDSA_P256_SHA256;
+  const CryptoAlgorithmBit participant_signature = signature_algorithm_bit(
+    local_data->credentials->get_participant_cert().dsign_algo());
+  message_auth.required_mask |= participant_signature;
+
+  CryptoAlgorithmRequirements& shared_secret =
+    adjusted_algorithm_info.key_establishment.shared_secret;
+  shared_secret.supported_mask &= CBIT_ECDHE_CEUM_P256;
+  shared_secret.required_mask |= CBIT_ECDHE_CEUM_P256;
+
+  if (!participant_signature || !ca_signature ||
+      !DCPS::check_crypto_algorithm_compatibility(
+        trust_chain.supported_mask, trust_chain.required_mask) ||
+      !DCPS::check_crypto_algorithm_compatibility(
+        message_auth.supported_mask, message_auth.required_mask) ||
+      !DCPS::check_crypto_algorithm_compatibility(
+        shared_secret.supported_mask, shared_secret.required_mask)) {
+    set_security_error(ex, -1, 0,
+      "Participant security configuration excludes an algorithm required by DDS:Auth:PKI-DH");
+    return false;
+  }
+
+  return true;
 }
 
 ::DDS::Security::ValidationResult_t AuthenticationBuiltInImpl::validate_remote_identity(

@@ -216,13 +216,15 @@ RtpsDiscovery::add_domain_participant_secure(
   const OpenDDS::DCPS::GUID_t& guid,
   DDS::Security::IdentityHandle id,
   DDS::Security::PermissionsHandle perm,
-  DDS::Security::ParticipantCryptoHandle part_crypto)
+  DDS::Security::ParticipantCryptoHandle part_crypto,
+  const DDS::Security::ParticipantSecurityAlgorithmInfo& algorithm_info)
 {
   DCPS::AddDomainStatus ads = {guid, false /*federated*/};
   ads.id.entityId = ENTITYID_PARTICIPANT;
   try {
     const DCPS::RcHandle<Spdp> spdp(DCPS::make_rch<Spdp>(
       domain, ads.id, qos, this, tls, id, perm, part_crypto));
+    spdp->participant_algorithm_info(algorithm_info);
     ACE_GUARD_RETURN(ACE_Thread_Mutex, g, participants_lock_, ads);
     participants_[domain][ads.id] = spdp;
     setup_stats_event(TheServiceParticipant->statistics_period());

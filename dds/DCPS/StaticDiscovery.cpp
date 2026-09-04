@@ -1636,7 +1636,8 @@ StaticDiscovery::add_domain_participant_secure(
   const OpenDDS::DCPS::GUID_t& /*guid*/,
   DDS::Security::IdentityHandle /*id*/,
   DDS::Security::PermissionsHandle /*perm*/,
-  DDS::Security::ParticipantCryptoHandle /*part_crypto*/)
+  DDS::Security::ParticipantCryptoHandle /*part_crypto*/,
+  const DDS::Security::ParticipantSecurityAlgorithmInfo& /*algorithm_info*/)
 {
   const DCPS::AddDomainStatus ads = {OpenDDS::DCPS::GUID_UNKNOWN, false /*federated*/};
   ACE_ERROR((LM_ERROR,

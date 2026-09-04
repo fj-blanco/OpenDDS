@@ -84,6 +84,12 @@ public:
     ::DDS::Security::IdentityHandle handle,
     ::DDS::Security::SecurityException & ex);
 
+  virtual ::CORBA::Boolean set_participant_security_config(
+    ::DDS::Security::ParticipantSecurityAlgorithmInfo & adjusted_algorithm_info,
+    ::DDS::Security::IdentityHandle handle,
+    const ::DDS::Security::ParticipantSecurityConfig & participant_security_config,
+    ::DDS::Security::SecurityException & ex);
+
   virtual ::CORBA::Boolean set_permissions_credential_and_token(
     ::DDS::Security::IdentityHandle handle,
     const ::DDS::Security::PermissionsCredentialToken & permissions_credential,

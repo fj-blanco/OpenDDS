@@ -8,6 +8,7 @@
 #include "ParameterListConverter.h"
 
 #include "MessageUtils.h"
+#include <dds/DCPS/SecurityAlgorithms.h>
 
 #include <dds/DCPS/DCPS_Utils.h>
 #include <dds/DCPS/DCPS_Utils.h>
@@ -24,6 +25,10 @@ OPENDDS_BEGIN_VERSIONED_NAMESPACE_DECL
 
 namespace OpenDDS {
 namespace RTPS {
+
+#if OPENDDS_CONFIG_SECURITY
+using DCPS::default_participant_security_algorithm_info;
+#endif
 
 #ifndef OPENDDS_SAFETY_PROFILE
 using DCPS::operator!=;
@@ -395,6 +400,24 @@ bool to_param_list(const DDS::Security::ParticipantBuiltinTopicData& pbtd,
   param_ebe.extended_builtin_endpoints(pbtd.extended_builtin_endpoints);
   DCPS::push_back(param_list, param_ebe);
 
+  DDS::Security::ParticipantSecurityAlgorithmInfo defaults;
+  default_participant_security_algorithm_info(defaults);
+  if (!DCPS::equal(pbtd.digital_signature, defaults.digital_signature)) {
+    Parameter param;
+    param.participant_security_digital_signature_algorithm_info(pbtd.digital_signature);
+    DCPS::push_back(param_list, param);
+  }
+  if (!DCPS::equal(pbtd.key_establishment, defaults.key_establishment)) {
+    Parameter param;
+    param.participant_security_key_establishment_algorithm_info(pbtd.key_establishment);
+    DCPS::push_back(param_list, param);
+  }
+  if (!DCPS::equal(pbtd.symmetric_cipher, defaults.symmetric_cipher)) {
+    Parameter param;
+    param.participant_security_symmetric_cipher_algorithm_info(pbtd.symmetric_cipher);
+    DCPS::push_back(param_list, param);
+  }
+
   return true;
 }
 
@@ -406,6 +429,11 @@ bool from_param_list(const ParameterList& param_list,
 
   pbtd.security_info.participant_security_attributes = 0;
   pbtd.security_info.plugin_participant_security_attributes = 0;
+  DDS::Security::ParticipantSecurityAlgorithmInfo defaults;
+  default_participant_security_algorithm_info(defaults);
+  pbtd.digital_signature = defaults.digital_signature;
+  pbtd.key_establishment = defaults.key_establishment;
+  pbtd.symmetric_cipher = defaults.symmetric_cipher;
 
   const CORBA::ULong length = param_list.length();
   for (CORBA::ULong i = 0; i < length; ++i) {
@@ -425,6 +453,15 @@ bool from_param_list(const ParameterList& param_list,
         break;
       case DDS::Security::PID_EXTENDED_BUILTIN_ENDPOINTS:
         pbtd.extended_builtin_endpoints = param.extended_builtin_endpoints();
+        break;
+      case DDS::Security::PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGORITHM_INFO:
+        pbtd.digital_signature = param.participant_security_digital_signature_algorithm_info();
+        break;
+      case DDS::Security::PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGORITHM_INFO:
+        pbtd.key_establishment = param.participant_security_key_establishment_algorithm_info();
+        break;
+      case DDS::Security::PID_PARTICIPANT_SECURITY_BUILTIN_EP_SYMMETRIC_CIPHER_ALGORITHM_INFO:
+        pbtd.symmetric_cipher = param.participant_security_symmetric_cipher_algorithm_info();
         break;
       default:
         if (param._d() & PIDMASK_INCOMPATIBLE) {

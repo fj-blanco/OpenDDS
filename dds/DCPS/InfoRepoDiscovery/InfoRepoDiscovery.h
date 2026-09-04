@@ -95,7 +95,8 @@ public:
     const GUID_t& guid,
     DDS::Security::IdentityHandle id,
     DDS::Security::PermissionsHandle perm,
-    DDS::Security::ParticipantCryptoHandle part_crypto);
+    DDS::Security::ParticipantCryptoHandle part_crypto,
+    const DDS::Security::ParticipantSecurityAlgorithmInfo& algorithm_info);
 #endif
 
   virtual bool remove_domain_participant(

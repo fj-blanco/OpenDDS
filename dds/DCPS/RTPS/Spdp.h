@@ -86,6 +86,12 @@ public:
        DDS::Security::IdentityHandle id_handle,
        DDS::Security::PermissionsHandle perm_handle,
        DDS::Security::ParticipantCryptoHandle crypto_handle);
+
+  void participant_algorithm_info(
+    const DDS::Security::ParticipantSecurityAlgorithmInfo& value)
+  {
+    participant_algorithm_info_ = value;
+  }
 #endif
 
   ~Spdp();
@@ -670,6 +676,7 @@ private:
   DDS::Security::PermissionsCredentialToken permissions_credential_token_;
 
   DDS::Security::ParticipantSecurityAttributes participant_sec_attr_;
+  DDS::Security::ParticipantSecurityAlgorithmInfo participant_algorithm_info_;
 
   DCPS::RcHandle<ICE::Agent> ice_agent_;
 

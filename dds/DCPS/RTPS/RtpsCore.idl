@@ -492,6 +492,15 @@ module OpenDDS {
 
       case DDS::Security::PID_EXTENDED_BUILTIN_ENDPOINTS:
         DDS::Security::ExtendedBuiltinEndpointSet_t extended_builtin_endpoints;
+
+      case DDS::Security::PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGORITHM_INFO:
+        DDS::Security::ParticipantSecurityDigitalSignatureAlgorithmInfo participant_security_digital_signature_algorithm_info;
+
+      case DDS::Security::PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGORITHM_INFO:
+        DDS::Security::ParticipantSecurityKeyEstablishmentAlgorithmInfo participant_security_key_establishment_algorithm_info;
+
+      case DDS::Security::PID_PARTICIPANT_SECURITY_BUILTIN_EP_SYMMETRIC_CIPHER_ALGORITHM_INFO:
+        DDS::Security::ParticipantSecuritySymmetricCipherAlgorithmInfo participant_security_symmetric_cipher_algorithm_info;
 #endif
 
       case PID_OPENDDS_ICE_GENERAL:

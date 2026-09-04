@@ -354,6 +354,7 @@ target_sources(OpenDDS_Dcps
     DCPS/SafetyProfileSequences.h
     DCPS/SafetyProfileStreams.h
     DCPS/Sample.h
+    DCPS/SecurityAlgorithms.h
     DCPS/SendStateDataSampleList.h
     DCPS/SendStateDataSampleList.inl
     DCPS/SequenceIterator.h

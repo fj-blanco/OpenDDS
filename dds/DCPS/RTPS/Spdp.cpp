@@ -25,6 +25,7 @@
 #include <dds/OpenDDSConfigWrapper.h>
 
 #if OPENDDS_CONFIG_SECURITY
+#  include <dds/DCPS/SecurityAlgorithms.h>
 #  include <dds/DCPS/security/framework/SecurityRegistry.h>
 #endif
 
@@ -289,6 +290,7 @@ Spdp::Spdp(DDS::DomainId_t domain,
 
 #if OPENDDS_CONFIG_SECURITY
   init_participant_sec_attributes(participant_sec_attr_);
+  DCPS::default_participant_security_algorithm_info(participant_algorithm_info_);
 #endif
 
 }
@@ -358,6 +360,7 @@ Spdp::Spdp(DDS::DomainId_t domain,
   ACE_GUARD(ACE_Thread_Mutex, g, lock_);
 
   init(domain, guid_, qos, tls);
+  DCPS::default_participant_security_algorithm_info(participant_algorithm_info_);
 
   DDS::Security::Authentication_var auth = security_config_->get_authentication();
   DDS::Security::AccessControl_var access = security_config_->get_access_control();
@@ -866,6 +869,12 @@ Spdp::handle_participant_data(DCPS::MessageId id,
     p.first->second.property_qos_ = pdata.ddsParticipantDataSecure.base.property;
     p.first->second.security_info_ = pdata.ddsParticipantDataSecure.base.security_info;
     p.first->second.extended_builtin_endpoints_ = pdata.ddsParticipantDataSecure.base.extended_builtin_endpoints;
+    p.first->second.algorithm_info_.digital_signature =
+      pdata.ddsParticipantDataSecure.base.digital_signature;
+    p.first->second.algorithm_info_.key_establishment =
+      pdata.ddsParticipantDataSecure.base.key_establishment;
+    p.first->second.algorithm_info_.symmetric_cipher =
+      pdata.ddsParticipantDataSecure.base.symmetric_cipher;
 
     DDS::Security::SecurityException sec_except = {"", 0, 0};
     const DDS::Security::ValidationResult_t validation_result = pre_check_auth(p.first, sec_except);
@@ -1288,7 +1297,10 @@ DDS::OctetSeq Spdp::local_participant_data_as_octets() const
       permissions_token_,
       qos_.property,
       {0, 0},
-      0
+      0,
+      participant_algorithm_info_.digital_signature,
+      participant_algorithm_info_.key_establishment,
+      participant_algorithm_info_.symmetric_cipher
     },
     identity_status_token_
   };
@@ -1406,6 +1418,18 @@ DDS::Security::ValidationResult_t Spdp::pre_check_auth(const DiscoveredParticipa
     return DDS::Security::VALIDATION_FAILED;
   }
   DDS::Security::Authentication_var auth = security_config_->get_authentication();
+
+  const bool same_vendor = iter->second.pdata_.participantProxy.vendorId == VENDORID_OPENDDS;
+  if ((!same_vendor &&
+       (DCPS::has_vendor_specific_requirements(participant_algorithm_info_) ||
+        DCPS::has_vendor_specific_requirements(iter->second.algorithm_info_))) ||
+      !DCPS::participant_algorithms_compatible(
+        participant_algorithm_info_, iter->second.algorithm_info_)) {
+    se.message = "Incompatible DDS Security participant cryptographic algorithms";
+    se.code = -1;
+    se.minor_code = 0;
+    return DDS::Security::VALIDATION_FAILED;
+  }
 
   return auth->validate_remote_identity(
     dp.identity_handle_, dp.local_auth_request_token_, dp.remote_auth_request_token_,
@@ -2331,7 +2355,10 @@ ParticipantData_t Spdp::build_local_pdata(
           security_attributes_to_bitmask(participant_sec_attr_),
           participant_sec_attr_.plugin_participant_attributes
         },
-        available_extended_builtin_endpoints_
+        available_extended_builtin_endpoints_,
+        participant_algorithm_info_.digital_signature,
+        participant_algorithm_info_.key_establishment,
+        participant_algorithm_info_.symmetric_cipher
       },
       identity_status_token_
     },

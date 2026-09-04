@@ -9,6 +9,7 @@
 #include "dds/DCPS/Definitions.h"
 #include "dds/DCPS/GuidBuilder.h"
 #include "dds/DCPS/Service_Participant.h"
+#include "dds/DCPS/SecurityAlgorithms.h"
 
 #include "dds/DCPS/RTPS/MessageUtils.h"
 #include "dds/DCPS/RTPS/MessageTypes.h"
@@ -723,6 +724,41 @@ TEST(dds_DCPS_RTPS_ParameterListConverter, From_SPDPdiscoveredParticipantData_Id
   ASSERT_EQ(0, strcmp("PropertyValue 0", w2.ddsParticipantDataSecure.identity_status_token.properties[0].value));
   ASSERT_EQ(0, strcmp("BinaryProperty 0", w2.ddsParticipantDataSecure.identity_status_token.binary_properties[0].name));
   ASSERT_EQ(0, memcmp("BinaryPropertyValue 0", w2.ddsParticipantDataSecure.identity_status_token.binary_properties[0].value.get_buffer(), strlen("BinaryPropertyValue 0")));
+}
+
+TEST(dds_DCPS_RTPS_ParameterListConverter, ParticipantSecurityAlgorithmInfo)
+{
+  DDS::Security::ParticipantBuiltinTopicData source;
+  DDS::Security::ParticipantBuiltinTopicData result;
+  OpenDDS::DCPS::set_default(source);
+  OpenDDS::DCPS::set_default(result);
+
+  DDS::Security::ParticipantSecurityAlgorithmInfo defaults;
+  OpenDDS::DCPS::default_participant_security_algorithm_info(defaults);
+  source.digital_signature = defaults.digital_signature;
+  source.key_establishment = defaults.key_establishment;
+  source.symmetric_cipher = defaults.symmetric_cipher;
+
+  ParameterList parameters;
+  ASSERT_TRUE(ParameterListConverter::to_param_list(source, parameters));
+  EXPECT_TRUE(is_missing(
+    parameters, PID_PARTICIPANT_SECURITY_DIGITAL_SIGNATURE_ALGORITHM_INFO));
+  EXPECT_TRUE(is_missing(
+    parameters, PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGORITHM_INFO));
+  EXPECT_TRUE(is_missing(
+    parameters, PID_PARTICIPANT_SECURITY_BUILTIN_EP_SYMMETRIC_CIPHER_ALGORITHM_INFO));
+  ASSERT_TRUE(ParameterListConverter::from_param_list(parameters, result));
+  EXPECT_EQ(defaults.key_establishment.shared_secret.required_mask,
+            result.key_establishment.shared_secret.required_mask);
+
+  source.key_establishment.shared_secret.supported_mask = 0x00010000;
+  source.key_establishment.shared_secret.required_mask = 0x00010000;
+  parameters.length(0);
+  ASSERT_TRUE(ParameterListConverter::to_param_list(source, parameters));
+  EXPECT_TRUE(is_present(
+    parameters, PID_PARTICIPANT_SECURITY_KEY_ESTABLISHMENT_ALGORITHM_INFO));
+  ASSERT_TRUE(ParameterListConverter::from_param_list(parameters, result));
+  EXPECT_EQ(0x00010000u, result.key_establishment.shared_secret.required_mask);
 }
 #endif
 

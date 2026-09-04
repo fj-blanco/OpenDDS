@@ -5,6 +5,49 @@ Security. OpenDDS Security provides security controls and capabilities for
 RTPS, which includes authentication of participants and encryption of messages.
 It is an implementation of DDS Security Version 1.1 (OMG formal/2018-04-01).
 
+## DDS Security 1.2 Participant Algorithm Negotiation
+
+OpenDDS includes a deliberately limited subset of DDS Security 1.2
+(OMG formal/2025-03-06) for participant-level cryptographic algorithm
+negotiation.  This subset lets Authentication plugins advertise and constrain
+signature and key-establishment algorithms without claiming complete DDS
+Security 1.2 conformance.
+
+The implemented subset consists of:
+
+- `CryptoAlgorithmBit`, `CryptoAlgorithmSet`, and the participant algorithm
+  information types from clauses 7.3.8 through 7.3.14;
+- `ParticipantSecurityConfig` and the Authentication
+  `set_participant_security_config` operation;
+- participant discovery parameters 0x1010, 0x1011, and 0x1012, including the
+  DDS Security 1.2 defaults when a parameter is absent;
+- the bilateral compatibility checks from clauses 7.3.10 through 7.3.13 before
+  participant authentication starts; and
+- configuration of the built-in PKI-DH Authentication implementation for its
+  existing RSA-PSS/ECDSA and ECDHE-P256 algorithms.
+
+The current DDS Security 1.1 Access Control result is adapted into a 1.2
+`ParticipantSecurityConfig`.  Authentication adjusts the signature and
+key-establishment fields.  The symmetric-cipher fields reflect the existing
+AES-128/AES-256 built-in Cryptographic implementation.
+
+The following DDS Security 1.2 work remains out of scope for this subset:
+
+- the Access Control `get_*_security_config` operations and governance XML
+  algorithm constraints;
+- the revised Cryptographic SPI and its adjusted algorithm information;
+- endpoint algorithm discovery and compatibility;
+- PSK and AXK protection modes, key revision, and the revised protection-info
+  masks; and
+- a complete migration of the existing DDS Security 1.1 IDL and behavior.
+
+Bits 16 through 30 of a `CryptoAlgorithmSet` are vendor-specific in DDS
+Security 1.2 and are interpreted in the context of the RTPS vendor ID.  OpenDDS
+therefore rejects a participant configuration that requires one of those bits
+when the remote participant has another vendor ID.  Plugins that use these
+bits need standardized assignments or an explicitly shared convention for
+cross-vendor interoperability.
+
 ## Debug Logging
 
 OpenDDS Security has debug messages like the rest of OpenDDS, many are under

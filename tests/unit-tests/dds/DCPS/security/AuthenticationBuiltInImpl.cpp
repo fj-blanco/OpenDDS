@@ -292,6 +292,38 @@ TEST_F(dds_DCPS_security_AuthenticationBuiltInImpl, GetIdentityToken_Success)
   ASSERT_EQ(std::string("RSA-2048"), value_of("dds.ca.algo", mp1.id_token.properties));
 }
 
+TEST_F(dds_DCPS_security_AuthenticationBuiltInImpl, SetParticipantSecurityConfig)
+{
+  AuthenticationBuiltInImpl auth;
+  ASSERT_EQ(VALIDATION_OK,
+            auth.validate_local_identity(mp1.id_handle, mp1.guid_adjusted, mp1.domain_id,
+                                         mp1.qos, mp1.guid, mp1.ex));
+
+  ParticipantSecurityConfig config;
+  config.algorithm_info.digital_signature.trust_chain.supported_mask =
+    CRYPTO_ALGORITHM_SET_ALL;
+  config.algorithm_info.digital_signature.trust_chain.required_mask =
+    CRYPTO_ALGORITHM_SET_EMPTY;
+  config.algorithm_info.digital_signature.message_auth.supported_mask =
+    CRYPTO_ALGORITHM_SET_ALL;
+  config.algorithm_info.digital_signature.message_auth.required_mask =
+    CRYPTO_ALGORITHM_SET_EMPTY;
+  config.algorithm_info.key_establishment.shared_secret.supported_mask =
+    CRYPTO_ALGORITHM_SET_ALL;
+  config.algorithm_info.key_establishment.shared_secret.required_mask =
+    CRYPTO_ALGORITHM_SET_EMPTY;
+  ParticipantSecurityAlgorithmInfo adjusted;
+  ASSERT_TRUE(auth.set_participant_security_config(adjusted, mp1.id_handle, config, mp1.ex));
+  EXPECT_EQ(CBIT_RSASSA_PSS_MGF1SHA256_2048_SHA256,
+            adjusted.digital_signature.message_auth.required_mask);
+  EXPECT_EQ(CBIT_ECDHE_CEUM_P256,
+            adjusted.key_establishment.shared_secret.required_mask);
+
+  config.algorithm_info.key_establishment.shared_secret.supported_mask =
+    CBIT_DHE_MODP_2048_256;
+  EXPECT_FALSE(auth.set_participant_security_config(adjusted, mp1.id_handle, config, mp1.ex));
+}
+
 TEST_F(dds_DCPS_security_AuthenticationBuiltInImpl, ValidateRemoteIdentity_UsingLocalAuthRequestToken_PendingHandshakeRequest)
 {
   AuthenticationBuiltInImpl auth;

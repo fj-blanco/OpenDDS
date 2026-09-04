@@ -34,6 +34,7 @@
 #include <dds/OpenDDSConfigWrapper.h>
 
 #if OPENDDS_CONFIG_SECURITY
+#  include "SecurityAlgorithms.h"
 #  include "security/framework/SecurityRegistry.h"
 #  include "security/framework/SecurityConfig.h"
 #  include "security/framework/Properties.h"
@@ -1708,6 +1709,20 @@ DomainParticipantImpl::enable()
       return DDS::RETCODE_ERROR;
     }
 
+    DDS::Security::ParticipantSecurityConfig part_sec_config;
+    participant_security_config_from_attributes(part_sec_config, part_sec_attr);
+    DDS::Security::ParticipantSecurityAlgorithmInfo part_algorithm_info;
+    if (!auth->set_participant_security_config(part_algorithm_info, id_handle_, part_sec_config, se)) {
+      if (DCPS::security_debug.new_entity_error) {
+        ACE_ERROR((LM_ERROR,
+                   ACE_TEXT("(%P|%t) ERROR: DomainParticipantImpl::enable, ")
+                   ACE_TEXT("Unable to configure participant authentication algorithms. ")
+                   ACE_TEXT("SecurityException[%d.%d]: %C\n"),
+                   se.code, se.minor_code, se.message.in()));
+      }
+      return DDS::Security::RETCODE_NOT_ALLOWED_BY_SECURITY;
+    }
+
     if (part_sec_attr.is_rtps_protected) { // DDS-Security v1.1 8.4.2.4 Table 27 is_rtps_protected
       if (part_sec_attr.allow_unauthenticated_participants) {
         if (DCPS::security_debug.new_entity_error) {
@@ -1736,7 +1751,8 @@ DomainParticipantImpl::enable()
     }
 
     value = disco->add_domain_participant_secure(domain_id_, qos_, type_lookup_service_,
-                                                 dp_id_, id_handle_, perm_handle_, part_crypto_handle_);
+                                                 dp_id_, id_handle_, perm_handle_, part_crypto_handle_,
+                                                 part_algorithm_info);
 
     if (value.id == GUID_UNKNOWN) {
       if (DCPS::security_debug.new_entity_error) {

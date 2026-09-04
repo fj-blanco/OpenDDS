@@ -11,7 +11,9 @@
 #ifndef OPENDDS_DDS_SECURITY_CORE_IDL
 #define OPENDDS_DDS_SECURITY_CORE_IDL
 
-// DDS Security 1.1 Normative IDL (ptc/2017-09-26)
+// DDS Security 1.1 Normative IDL (ptc/2017-09-26), with the participant
+// cryptographic-algorithm negotiation subset from DDS Security 1.2
+// (formal/2025-03-06).
 // This file follows the spec IDL but includes changes necessary for OpenDDS.
 // Those changes are not expected to impact the interface between plugin
 // implementations and the core.  Where the spec uses the 'native' IDL keyword,
@@ -117,6 +119,9 @@ module DDS {
       PropertyQosPolicy property;
       ParticipantSecurityInfo security_info;
       ExtendedBuiltinEndpointSet_t extended_builtin_endpoints;
+      ParticipantSecurityDigitalSignatureAlgorithmInfo digital_signature;
+      ParticipantSecurityKeyEstablishmentAlgorithmInfo key_establishment;
+      ParticipantSecuritySymmetricCipherAlgorithmInfo symmetric_cipher;
     };
 
     //@extensibility(MUTABLE)
@@ -176,6 +181,23 @@ module DDS {
     typedef long IdentityHandle;
     typedef long HandshakeHandle;
     typedef long PermissionsHandle;
+
+    // DDS Security 1.2 ParticipantSecurityConfig.  OpenDDS continues to use
+    // ParticipantSecurityAttributes internally for the 1.1 crypto SPI while
+    // the remaining 1.2 crypto/key-revision work is implemented.
+    //@extensibility(APPENDABLE)
+    struct ParticipantSecurityConfig {
+      boolean     allow_unauthenticated_participants;
+      boolean     is_access_protected;
+      boolean     is_rtps_axk_protected;
+      boolean     is_rtps_psk_protected;
+      boolean     is_discovery_protected;
+      boolean     is_liveliness_protected;
+      boolean     is_key_revision_enabled;
+      PluginParticipantSecurityAttributesMask plugin_participant_attributes;
+      PropertySeq ac_endpoint_properties;
+      ParticipantSecurityAlgorithmInfo algorithm_info;
+    };
 
     // https://issues.omg.org/issues/DDSSEC12-2
     local interface SharedSecretHandle {
@@ -288,6 +310,13 @@ module DDS {
       get_shared_secret(
         in    HandshakeHandle    handshake_handle,
         inout SecurityException  ex );
+
+      boolean
+      set_participant_security_config(
+        inout ParticipantSecurityAlgorithmInfo adjusted_algorithm_info,
+        in    IdentityHandle                   handle,
+        in    ParticipantSecurityConfig        participant_security_config,
+        inout SecurityException                ex );
 
       boolean
       get_authenticated_peer_credential_token(

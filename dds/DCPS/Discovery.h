@@ -127,7 +127,8 @@ public:
     const OpenDDS::DCPS::GUID_t& guid,
     DDS::Security::IdentityHandle id,
     DDS::Security::PermissionsHandle perm,
-    DDS::Security::ParticipantCryptoHandle part_crypto) = 0;
+    DDS::Security::ParticipantCryptoHandle part_crypto,
+    const DDS::Security::ParticipantSecurityAlgorithmInfo& algorithm_info) = 0;
 #endif
 
   virtual bool remove_domain_participant(

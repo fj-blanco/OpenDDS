@@ -86,7 +86,8 @@ public:
     const OpenDDS::DCPS::GUID_t& guid,
     DDS::Security::IdentityHandle id,
     DDS::Security::PermissionsHandle perm,
-    DDS::Security::ParticipantCryptoHandle part_crypto)
+    DDS::Security::ParticipantCryptoHandle part_crypto,
+    const DDS::Security::ParticipantSecurityAlgorithmInfo& algorithm_info)
     OPENDDS_GCC_PRE53_DISABLE_OPTIMIZATION;
 #endif
 
