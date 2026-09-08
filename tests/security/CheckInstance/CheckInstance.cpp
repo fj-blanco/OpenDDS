@@ -259,10 +259,39 @@ private:
   size_t flags_;
 };
 
+class SymmetricMismatchAuthentication : public OpenDDS::Security::AuthenticationBuiltInImpl {
+public:
+  CORBA::Boolean set_participant_security_config(
+    DDS::Security::ParticipantSecurityAlgorithmInfo& adjusted_algorithm_info,
+    DDS::Security::IdentityHandle handle,
+    const DDS::Security::ParticipantSecurityConfig& participant_security_config,
+    DDS::Security::SecurityException& ex)
+  {
+    if (!AuthenticationBuiltInImpl::set_participant_security_config(
+          adjusted_algorithm_info, handle, participant_security_config, ex)) {
+      return false;
+    }
+
+    // Deliberately advertise a symmetric-cipher configuration that is
+    // incompatible with the other participant.  The governance used by this
+    // test leaves RTPS and user endpoints unprotected, so this must not prevent
+    // Authentication or endpoint matching.
+    adjusted_algorithm_info.symmetric_cipher.supported_mask =
+      DDS::Security::CBIT_AES128_GCM;
+    adjusted_algorithm_info.symmetric_cipher.builtin_endpoints_required_mask =
+      DDS::Security::CBIT_AES128_GCM;
+    adjusted_algorithm_info.symmetric_cipher.builtin_kx_endpoints_required_mask =
+      DDS::Security::CBIT_AES128_GCM;
+    adjusted_algorithm_info.symmetric_cipher.user_endpoints_default_required_mask =
+      DDS::Security::CBIT_AES128_GCM;
+    return true;
+  }
+};
+
 class CustomSecurityPluginInst : public OpenDDS::Security::SecurityPluginInst {
 public:
   CustomSecurityPluginInst()
-    : authentication_(new OpenDDS::Security::AuthenticationBuiltInImpl)
+    : authentication_(new SymmetricMismatchAuthentication)
     , access_control_(new CustomAccessControl)
     , key_factory_(new OpenDDS::Security::CryptoBuiltInImpl)
     , key_exchange_(DDS::Security::CryptoKeyExchange::_narrow(key_factory_))
@@ -496,7 +525,11 @@ int ACE_TMAIN(int argc, ACE_TCHAR* argv[])
                                                                  DDS::DataReaderListener::_nil(),
                                                                  OpenDDS::DCPS::DEFAULT_STATUS_MASK);
 
-    Utils::wait_match(datawriter1, 1);
+    ACE_DEBUG((LM_DEBUG, "SCENARIO: symmetric-cipher incompatibility does not prevent authentication\n"));
+    if (Utils::wait_match(datawriter1, 1) != 0) {
+      ACE_ERROR((LM_ERROR, "ERROR: participants with compatible authentication algorithms did not match\n"));
+      return EXIT_FAILURE;
+    }
 
     ACE_DEBUG((LM_DEBUG, "SCENARIO: check_remote_datawriter_register_instance failure\n"));
     custom_plugin->reset_flags();

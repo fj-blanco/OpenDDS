@@ -53,6 +53,26 @@ TEST(dds_DCPS_SecurityAlgorithms, Version11Defaults)
   EXPECT_TRUE(has_vendor_specific_requirements(value));
 }
 
+TEST(dds_DCPS_SecurityAlgorithms, AuthenticationCompatibilityIgnoresSymmetricCipher)
+{
+  ParticipantSecurityAlgorithmInfo lhs;
+  ParticipantSecurityAlgorithmInfo rhs;
+  default_participant_security_algorithm_info(lhs);
+  default_participant_security_algorithm_info(rhs);
+
+  rhs.symmetric_cipher.supported_mask = CBIT_AES128_GCM;
+  rhs.symmetric_cipher.builtin_endpoints_required_mask = CBIT_AES128_GCM;
+  rhs.symmetric_cipher.builtin_kx_endpoints_required_mask = CBIT_AES128_GCM;
+
+  EXPECT_FALSE(compatible(lhs.symmetric_cipher, rhs.symmetric_cipher));
+  EXPECT_TRUE(authentication_algorithms_compatible(lhs, rhs));
+  EXPECT_FALSE(participant_algorithms_compatible(lhs, rhs));
+
+  rhs.symmetric_cipher.builtin_endpoints_required_mask = 0x00010000;
+  EXPECT_FALSE(has_vendor_specific_authentication_requirements(rhs));
+  EXPECT_TRUE(has_vendor_specific_requirements(rhs));
+}
+
 } // namespace
 
 #endif // OPENDDS_CONFIG_SECURITY

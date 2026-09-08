@@ -80,13 +80,20 @@ inline bool participant_algorithms_compatible(
     compatible(lhs.symmetric_cipher, rhs.symmetric_cipher);
 }
 
-inline bool has_vendor_specific_requirements(
+inline bool has_vendor_specific_authentication_requirements(
   const DDS::Security::ParticipantSecurityAlgorithmInfo& value)
 {
   const DDS::Security::CryptoAlgorithmSet vendor_mask = 0x7fff0000;
   return (value.digital_signature.trust_chain.required_mask & vendor_mask) != 0 ||
     (value.digital_signature.message_auth.required_mask & vendor_mask) != 0 ||
-    (value.key_establishment.shared_secret.required_mask & vendor_mask) != 0 ||
+    (value.key_establishment.shared_secret.required_mask & vendor_mask) != 0;
+}
+
+inline bool has_vendor_specific_requirements(
+  const DDS::Security::ParticipantSecurityAlgorithmInfo& value)
+{
+  const DDS::Security::CryptoAlgorithmSet vendor_mask = 0x7fff0000;
+  return has_vendor_specific_authentication_requirements(value) ||
     (value.symmetric_cipher.builtin_endpoints_required_mask & vendor_mask) != 0 ||
     (value.symmetric_cipher.builtin_kx_endpoints_required_mask & vendor_mask) != 0;
 }

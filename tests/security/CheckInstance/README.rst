@@ -11,4 +11,5 @@ This test checks the following methods in the AccessControl plugin:
 
 This is a single-process test that creates two participants.  One
 participant uses a custom plugin to exercise both positive and
-negative scenarios.
+negative scenarios.  It also verifies that incompatible symmetric-cipher
+requirements do not prevent Authentication or unprotected endpoint matching.

@@ -21,8 +21,8 @@ The implemented subset consists of:
   `set_participant_security_config` operation;
 - participant discovery parameters 0x1010, 0x1011, and 0x1012, including the
   DDS Security 1.2 defaults when a parameter is absent;
-- the bilateral compatibility checks from clauses 7.3.10 through 7.3.13 before
-  participant authentication starts; and
+- the bilateral digital-signature and key-establishment compatibility checks
+  from clauses 7.3.10 through 7.3.12 before authentication begins; and
 - configuration of the built-in PKI-DH Authentication implementation for its
   existing RSA-PSS/ECDSA and ECDHE-P256 algorithms.
 
@@ -36,7 +36,8 @@ The following DDS Security 1.2 work remains out of scope for this subset:
 - the Access Control `get_*_security_config` operations and governance XML
   algorithm constraints;
 - the revised Cryptographic SPI and its adjusted algorithm information;
-- endpoint algorithm discovery and compatibility;
+- endpoint algorithm discovery and compatibility, including enforcement of
+  symmetric-cipher compatibility when protected entities are associated;
 - PSK and AXK protection modes, key revision, and the revised protection-info
   masks; and
 - a complete migration of the existing DDS Security 1.1 IDL and behavior.

@@ -1421,11 +1421,11 @@ DDS::Security::ValidationResult_t Spdp::pre_check_auth(const DiscoveredParticipa
 
   const bool same_vendor = iter->second.pdata_.participantProxy.vendorId == VENDORID_OPENDDS;
   if ((!same_vendor &&
-       (DCPS::has_vendor_specific_requirements(participant_algorithm_info_) ||
-        DCPS::has_vendor_specific_requirements(iter->second.algorithm_info_))) ||
-      !DCPS::participant_algorithms_compatible(
+       (DCPS::has_vendor_specific_authentication_requirements(participant_algorithm_info_) ||
+        DCPS::has_vendor_specific_authentication_requirements(iter->second.algorithm_info_))) ||
+      !DCPS::authentication_algorithms_compatible(
         participant_algorithm_info_, iter->second.algorithm_info_)) {
-    se.message = "Incompatible DDS Security participant cryptographic algorithms";
+    se.message = "Incompatible DDS Security participant authentication algorithms";
     se.code = -1;
     se.minor_code = 0;
     return DDS::Security::VALIDATION_FAILED;
